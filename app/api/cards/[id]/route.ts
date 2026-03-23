@@ -23,11 +23,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const body = await request.json()
+  const body: Partial<CardInsert> = await request.json()
 
   const { data, error } = await supabase
     .from('cards')
-    .update(body)
+    .update(body as CardInsert)
     .eq('id', params.id)
     .select()
     .single()
