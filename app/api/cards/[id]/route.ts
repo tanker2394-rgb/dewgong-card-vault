@@ -23,11 +23,12 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const body: Partial<CardInsert> = await request.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = await request.json()
 
   const { data, error } = await supabase
     .from('cards')
-    .update(body as CardInsert)
+    .update(body)
     .eq('id', params.id)
     .select()
     .single()
