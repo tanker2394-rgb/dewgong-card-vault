@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Search, X, CheckCircle2, Loader2, ChevronDown } from 'lucide-react'
+import { Search, X, CheckCircle2, Loader2, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { TcgCard } from '@/lib/pokemon-tcg'
 import type { Condition, CardInsert } from '@/types/database'
@@ -40,6 +40,7 @@ export function AddCardForm() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchSet, setSearchSet] = useState('')
   const [searchResults, setSearchResults] = useState<TcgCard[]>([])
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'price_high' | 'price_low'>('date')
   const [searching, setSearching] = useState(false)
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -79,6 +80,16 @@ export function AddCardForm() {
     setSearchSet(s)
     triggerSearch(searchQuery, s)
   }, [searchQuery, triggerSearch])
+
+  const sortedResults = [...searchResults].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name)
+    if (sortBy === 'date') {
+      return (b.set.releaseDate ?? '').localeCompare(a.set.releaseDate ?? '')
+    }
+    const priceA = a.tcgplayer?.prices?.holofoil?.market ?? a.tcgplayer?.prices?.normal?.market ?? 0
+    const priceB = b.tcgplayer?.prices?.holofoil?.market ?? b.tcgplayer?.prices?.normal?.market ?? 0
+    return sortBy === 'price_high' ? priceB - priceA : priceA - priceB
+  })
 
   const handleSelectCard = (card: TcgCard) => {
     setSelectedCard(card)
@@ -186,10 +197,28 @@ export function AddCardForm() {
             />
           </div>
 
-          {/* Results dropdown */}
+          {/* Sort + results */}
+          {searchResults.length > 0 && (
+            <div className="flex items-center gap-2 justify-between">
+              <span className="text-xs text-frost-400">{searchResults.length} results</span>
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="w-3.5 h-3.5 text-frost-400" />
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                  className="text-xs border border-ice-200 rounded-lg px-2 py-1 text-frost-600 bg-white focus:outline-none focus:ring-1 focus:ring-ice-300"
+                >
+                  <option value="date">Newest Set</option>
+                  <option value="price_high">Price: High → Low</option>
+                  <option value="price_low">Price: Low → High</option>
+                  <option value="name">Name A–Z</option>
+                </select>
+              </div>
+            </div>
+          )}
           {searchResults.length > 0 && (
             <div className="border border-ice-200 rounded-xl overflow-hidden shadow-ice max-h-72 overflow-y-auto">
-              {searchResults.map(card => (
+              {sortedResults.map(card => (
                 <button
                   key={card.id}
                   type="button"
@@ -210,11 +239,15 @@ export function AddCardForm() {
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-frost-800 truncate">{card.name}</div>
                     <div className="text-xs text-frost-400 truncate">{card.set.name} · #{card.number}</div>
-                    {card.rarity && (
-                      <div className="text-xs text-ice-500">{card.rarity}</div>
-                    )}
+                    {card.rarity && <div className="text-xs text-ice-500">{card.rarity}</div>}
                   </div>
-                  <ChevronDown className="w-4 h-4 text-frost-300 rotate-[-90deg]" />
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {(() => {
+                      const price = card.tcgplayer?.prices?.holofoil?.market ?? card.tcgplayer?.prices?.normal?.market
+                      return price ? <span className="text-xs font-bold text-emerald-600">${price.toFixed(2)}</span> : null
+                    })()}
+                    <ChevronDown className="w-4 h-4 text-frost-300 rotate-[-90deg]" />
+                  </div>
                 </button>
               ))}
             </div>
