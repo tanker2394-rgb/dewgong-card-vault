@@ -1,9 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
-import { LayoutDashboard, Library, PlusCircle } from 'lucide-react'
+import { LayoutDashboard, Library, PlusCircle, LogOut, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase-browser'
+import { useEffect, useState } from 'react'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 const navLinks = [
   { href: '/',       label: 'Dashboard', icon: LayoutDashboard },
@@ -13,6 +16,23 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/auth')
+    router.refresh()
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-ice-200 bg-white/90 backdrop-blur-md shadow-sm">
@@ -21,7 +41,6 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-10 h-10 rounded-xl bg-ice-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-200">
-              {/* Dewgong official sprite */}
               <img
                 src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/87.png"
                 alt="Dewgong"
@@ -29,12 +48,8 @@ export function Navbar() {
               />
             </div>
             <div className="leading-tight">
-              <span className="block text-base font-bold text-gradient-ice tracking-tight">
-                Dewgong
-              </span>
-              <span className="block text-[10px] text-frost-400 font-medium tracking-widest uppercase -mt-0.5">
-                Card Vault
-              </span>
+              <span className="block text-base font-bold text-gradient-ice tracking-tight">Dewgong</span>
+              <span className="block text-[10px] text-frost-400 font-medium tracking-widest uppercase -mt-0.5">Card Vault</span>
             </div>
           </Link>
 
@@ -48,9 +63,7 @@ export function Navbar() {
                   href={href}
                   className={clsx(
                     'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150',
-                    active
-                      ? 'bg-ice-100 text-ice-700 shadow-sm'
-                      : 'text-frost-500 hover:bg-frost-100 hover:text-frost-700'
+                    active ? 'bg-ice-100 text-ice-700 shadow-sm' : 'text-frost-500 hover:bg-frost-100 hover:text-frost-700'
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -59,6 +72,24 @@ export function Navbar() {
               )
             })}
           </nav>
+
+          {/* User + logout */}
+          {user && (
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-frost-400 bg-frost-50 rounded-xl px-3 py-1.5">
+                <User className="w-3.5 h-3.5" />
+                <span className="max-w-[120px] truncate">{user.email}</span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-frost-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

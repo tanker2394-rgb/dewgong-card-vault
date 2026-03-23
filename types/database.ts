@@ -2,6 +2,7 @@ export type Condition = 'NM' | 'LP' | 'MP' | 'HP' | 'DMG'
 
 export interface CardRow {
   id: string
+  user_id: string
   name: string
   set_name: string
   set_number: string | null
@@ -16,6 +17,7 @@ export interface CardRow {
 }
 
 export interface CardInsert {
+  user_id?: string
   name: string
   set_name: string
   set_number?: string | null

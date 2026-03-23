@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export const revalidate = 0
 import { StatCard } from '@/components/StatCard'
@@ -17,9 +17,14 @@ import {
 import type { CardRow } from '@/types/database'
 
 async function getPortfolioData() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { cards: [] as CardRow[], error: null }
+
   const { data, error } = await supabase
     .from('cards')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   if (error) return { cards: [] as CardRow[], error: error.message }
