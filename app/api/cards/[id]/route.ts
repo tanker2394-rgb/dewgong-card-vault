@@ -23,7 +23,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const body: Partial<CardInsert> = await request.json()
+  const body = await request.json()
 
   const { data, error } = await supabase
     .from('cards')
