@@ -23,9 +23,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body: any = await request.json()
+  const body = await request.json()
 
+  // @ts-expect-error: Supabase update type inference issue with custom DB type
   const { data, error } = await supabase
     .from('cards')
     .update(body)
