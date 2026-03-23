@@ -25,7 +25,6 @@ export async function PATCH(
 ) {
   const body = await request.json()
 
-  // @ts-expect-error: Supabase update type inference issue with custom DB type
   const { data, error } = await supabase
     .from('cards')
     .update(body)
