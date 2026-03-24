@@ -38,7 +38,7 @@ export function AuthForm() {
         setMessage('Check your email for a confirmation link!')
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
         })
         if (error) throw error
         setMessage('Password reset email sent! Check your inbox.')
