@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Search, X, CheckCircle2, Loader2, ChevronDown, ArrowUpDown, Camera } from 'lucide-react'
+import { Search, X, CheckCircle2, Loader2, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { TcgCard } from '@/lib/pokemon-tcg'
 import type { Condition, CardInsert } from '@/types/database'
@@ -47,10 +47,7 @@ export function AddCardForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [scanning, setScanning] = useState(false)
-  const [scanError, setScanError] = useState<string | null>(null)
   const searchTimeout = useRef<NodeJS.Timeout>()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const triggerSearch = useCallback((q: string, set: string) => {
     clearTimeout(searchTimeout.current)
@@ -83,28 +80,6 @@ export function AddCardForm() {
     setSearchSet(s)
     triggerSearch(searchQuery, s)
   }, [searchQuery, triggerSearch])
-
-  const handleScan = useCallback(async (file: File) => {
-    setScanError(null)
-    setScanning(true)
-    try {
-      const fd = new FormData()
-      fd.append('image', file)
-      const res = await fetch('/api/scan-card', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Scan failed')
-      if (data.name) {
-        setSearchQuery(data.name)
-        triggerSearch(data.name, searchSet)
-      } else {
-        setScanError('Could not identify the card. Try a clearer photo.')
-      }
-    } catch (err) {
-      setScanError(err instanceof Error ? err.message : 'Scan failed')
-    } finally {
-      setScanning(false)
-    }
-  }, [triggerSearch, searchSet])
 
   const sortedResults = [...searchResults].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
@@ -197,38 +172,7 @@ export function AddCardForm() {
       {/* TCG Search */}
       {!selectedCard ? (
         <div className="card-surface p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-frost-700 text-sm uppercase tracking-wide">Search Pokémon TCG</h2>
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  if (file) handleScan(file)
-                  e.target.value = ''
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={scanning}
-                title="Scan card with camera"
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-ice-100 text-ice-700 hover:bg-ice-200 transition-colors disabled:opacity-50"
-              >
-                {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
-                {scanning ? 'Scanning…' : 'Scan Card'}
-              </button>
-            </div>
-          </div>
-
-          {scanError && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">{scanError}</p>
-          )}
-
+          <h2 className="font-semibold text-frost-700 text-sm uppercase tracking-wide">Search Pokémon TCG</h2>
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-frost-400" />

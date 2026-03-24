@@ -11,17 +11,20 @@ interface Props {
 }
 
 const colorMap = {
-  blue:   { icon: 'text-ice-500',    bg: 'bg-ice-50',    border: 'border-ice-100' },
-  green:  { icon: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-  red:    { icon: 'text-red-400',    bg: 'bg-red-50',    border: 'border-red-100' },
-  purple: { icon: 'text-violet-500', bg: 'bg-violet-50', border: 'border-violet-100' },
+  blue:   { icon: 'text-ice-500',     bg: 'bg-ice-50',      border: 'border-ice-100',     accent: '#0ea5e9' },
+  green:  { icon: 'text-emerald-500', bg: 'bg-emerald-50',  border: 'border-emerald-100', accent: '#10b981' },
+  red:    { icon: 'text-red-400',     bg: 'bg-red-50',      border: 'border-red-100',     accent: '#f87171' },
+  purple: { icon: 'text-violet-500',  bg: 'bg-violet-50',   border: 'border-violet-100',  accent: '#8b5cf6' },
 }
 
 export function StatCard({ label, value, sub, icon: Icon, trend = 'neutral', color = 'blue' }: Props) {
   const colors = colorMap[color]
 
   return (
-    <div className="stat-card">
+    <div
+      className="stat-card border-l-4"
+      style={{ borderLeftColor: colors.accent }}
+    >
       <div className="flex items-start justify-between">
         <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center border', colors.bg, colors.border)}>
           <Icon className={clsx('w-5 h-5', colors.icon)} />
@@ -29,8 +32,8 @@ export function StatCard({ label, value, sub, icon: Icon, trend = 'neutral', col
         {sub && (
           <span className={clsx(
             'text-xs font-semibold px-2 py-0.5 rounded-full',
-            trend === 'up'      ? 'bg-emerald-100 text-emerald-700' :
-            trend === 'down'    ? 'bg-red-100 text-red-600' :
+            trend === 'up'   ? 'bg-emerald-100 text-emerald-700' :
+            trend === 'down' ? 'bg-red-100 text-red-600' :
             'bg-frost-100 text-frost-500'
           )}>
             {sub}
