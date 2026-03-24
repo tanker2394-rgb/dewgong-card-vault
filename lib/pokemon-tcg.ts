@@ -49,11 +49,12 @@ export interface TcgSearchResponse {
 const SUBTYPE_WORDS = ['VMAX', 'VSTAR', 'VUNION', 'GX', 'EX', 'MEGA', 'BREAK', 'PRIME', 'LEGEND', 'TAG TEAM']
 
 async function fetchCards(q: string, headers: HeadersInit): Promise<TcgCard[]> {
-  const res = await fetch(
-    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=60&orderBy=-set.releaseDate`,
-    { headers, cache: 'no-store' }
-  )
-  if (!res.ok) return []
+  const url = `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=60&orderBy=-set.releaseDate`
+  const res = await fetch(url, { headers, cache: 'no-store' })
+  if (!res.ok) {
+    console.error(`Pokemon TCG API error ${res.status} for query: ${q}`)
+    return []
+  }
   const data: TcgSearchResponse = await res.json()
   return data.data ?? []
 }
@@ -64,45 +65,37 @@ export async function searchCards(query: string, set?: string): Promise<TcgCard[
   if (apiKey) headers['X-Api-Key'] = apiKey
 
   const setFilter = set ? ` set.name:"${set}*"` : ''
-
-  // Extract subtype and base name
-  let nameQuery = query.trim()
+  let baseName = query.trim()
   let detectedSubtype = ''
+
   for (const sub of SUBTYPE_WORDS) {
-    if (new RegExp(`\\b${sub}\\b`, 'i').test(nameQuery)) {
+    if (new RegExp(`\\b${sub}\\b`, 'i').test(baseName)) {
       detectedSubtype = sub
-      nameQuery = nameQuery.replace(new RegExp(`\\b${sub}\\b`, 'gi'), '').trim()
+      baseName = baseName.replace(new RegExp(`\\b${sub}\\b`, 'gi'), '').trim()
       break
     }
   }
-  const withoutV = nameQuery.replace(/\bV\b/g, '').trim()
-  if (withoutV) nameQuery = withoutV
-  if (!nameQuery) nameQuery = query.trim()
+  // Strip standalone "V" (e.g. "Pikachu V" → "Pikachu" so wildcard catches all variants)
+  const strippedV = baseName.replace(/\bV\b/g, '').trim()
+  if (strippedV) baseName = strippedV
+  if (!baseName) baseName = query.trim()
 
-  // Three parallel searches for maximum coverage:
-  // 1. Exact phrase match — catches e.g. "Deoxys VMAX" literally
-  // 2. Subtype-filtered — catches e.g. name:deoxys* subtypes:VMAX (if subtype detected)
-  // 3. Broad wildcard — catches partial name entry
-  const rawQuery = query.trim()
-  const phraseQuery = `name:"${rawQuery}"${setFilter}`
-  const broadQuery = `name:${nameQuery}*${setFilter}`
-  const specificQuery = detectedSubtype
-    ? `name:${nameQuery}* subtypes:${detectedSubtype}${setFilter}`
-    : null
+  if (detectedSubtype) {
+    // Subtype detected (e.g. "Deoxys VMAX"): run two targeted searches in parallel
+    const [specificResults, broadResults] = await Promise.all([
+      fetchCards(`name:${baseName}* subtypes:${detectedSubtype}${setFilter}`, headers),
+      fetchCards(`name:${baseName}*${setFilter}`, headers),
+    ])
+    const seen = new Set<string>()
+    return [...specificResults, ...broadResults].filter(card => {
+      if (seen.has(card.id)) return false
+      seen.add(card.id)
+      return true
+    })
+  }
 
-  const [phraseResults, specificResults, broadResults] = await Promise.all([
-    fetchCards(phraseQuery, headers),
-    specificQuery ? fetchCards(specificQuery, headers) : Promise.resolve([] as TcgCard[]),
-    fetchCards(broadQuery, headers),
-  ])
-
-  // Merge: phrase first (exact hits), then specific, then broad — dedup by card id
-  const seen = new Set<string>()
-  return [...phraseResults, ...specificResults, ...broadResults].filter(card => {
-    if (seen.has(card.id)) return false
-    seen.add(card.id)
-    return true
-  })
+  // Simple query (e.g. "Lucario"): one call
+  return fetchCards(`name:${baseName}*${setFilter}`, headers)
 }
 
 export async function getCardById(id: string): Promise<TcgCard> {

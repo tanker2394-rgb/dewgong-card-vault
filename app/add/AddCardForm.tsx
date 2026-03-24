@@ -42,6 +42,7 @@ export function AddCardForm() {
   const [searchResults, setSearchResults] = useState<TcgCard[]>([])
   const [sortBy, setSortBy] = useState<'relevance' | 'name' | 'date' | 'price_high' | 'price_low'>('relevance')
   const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -57,13 +58,20 @@ export function AddCardForm() {
     }
     searchTimeout.current = setTimeout(async () => {
       setSearching(true)
+      setSearchError(null)
       try {
         const params = new URLSearchParams({ q })
         if (set.trim()) params.set('set', set.trim())
         const res = await fetch(`/api/tcg-search?${params}`)
         const data = await res.json()
-        setSearchResults(Array.isArray(data) ? data : [])
-      } catch {
+        if (!res.ok) {
+          setSearchError(data?.error ?? `Search failed (${res.status})`)
+          setSearchResults([])
+        } else {
+          setSearchResults(Array.isArray(data) ? data : [])
+        }
+      } catch (err) {
+        setSearchError(err instanceof Error ? err.message : 'Search failed')
         setSearchResults([])
       } finally {
         setSearching(false)
@@ -289,7 +297,10 @@ export function AddCardForm() {
             </div>
           )}
 
-          {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
+          {searchError && (
+            <p className="text-sm text-red-500 text-center py-2">{searchError}</p>
+          )}
+          {searchQuery.length >= 2 && !searching && !searchError && searchResults.length === 0 && (
             <p className="text-sm text-frost-400 text-center py-2">No cards found. Try a different name.</p>
           )}
 
