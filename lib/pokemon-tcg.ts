@@ -46,42 +46,58 @@ export interface TcgSearchResponse {
   totalCount: number
 }
 
-// Subtype words to strip from the query so we search by Pokémon name only
 const SUBTYPE_WORDS = ['VMAX', 'VSTAR', 'VUNION', 'GX', 'EX', 'MEGA', 'BREAK', 'PRIME', 'LEGEND', 'TAG TEAM']
+
+async function fetchCards(q: string, headers: HeadersInit): Promise<TcgCard[]> {
+  const res = await fetch(
+    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=60&orderBy=-set.releaseDate`,
+    { headers, cache: 'no-store' }
+  )
+  if (!res.ok) return []
+  const data: TcgSearchResponse = await res.json()
+  return data.data ?? []
+}
 
 export async function searchCards(query: string, set?: string): Promise<TcgCard[]> {
   const apiKey = process.env.POKEMON_TCG_API_KEY
-
   const headers: HeadersInit = { 'Content-Type': 'application/json' }
   if (apiKey) headers['X-Api-Key'] = apiKey
 
-  // Strip subtype words to get a clean Pokémon name for the API search
-  // e.g. "vmax charizard" → "charizard", "deoxys vmax" → "deoxys"
-  // Then rely on client-side sort (by price) to surface the right variant
+  const setFilter = set ? ` set.name:"${set}*"` : ''
+
+  // Extract subtype and base name
   let nameQuery = query.trim()
+  let detectedSubtype = ''
   for (const sub of SUBTYPE_WORDS) {
-    nameQuery = nameQuery.replace(new RegExp(`\\b${sub}\\b`, 'gi'), '').trim()
+    if (new RegExp(`\\b${sub}\\b`, 'i').test(nameQuery)) {
+      detectedSubtype = sub
+      nameQuery = nameQuery.replace(new RegExp(`\\b${sub}\\b`, 'gi'), '').trim()
+      break
+    }
   }
-  // Also strip standalone "V" only when other words remain
   const withoutV = nameQuery.replace(/\bV\b/g, '').trim()
   if (withoutV) nameQuery = withoutV
+  if (!nameQuery) nameQuery = query.trim()
 
-  if (!nameQuery) nameQuery = query.trim() // fallback: nothing was strippable
+  // Run two searches in parallel: one broad, one with subtype filter (if detected)
+  // This ensures we never miss a card due to API quirks
+  const broadQuery = `name:${nameQuery}*${setFilter}`
+  const specificQuery = detectedSubtype
+    ? `name:${nameQuery}* subtypes:${detectedSubtype}${setFilter}`
+    : null
 
-  let q = `name:${nameQuery}*`
-  if (set) q += ` set.name:"${set}*"`
+  const [broadResults, specificResults] = await Promise.all([
+    fetchCards(broadQuery, headers),
+    specificQuery ? fetchCards(specificQuery, headers) : Promise.resolve([] as TcgCard[]),
+  ])
 
-  const res = await fetch(
-    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=100&orderBy=-set.releaseDate`,
-    { headers, cache: 'no-store' }
-  )
-
-  if (!res.ok) {
-    throw new Error(`Pokemon TCG API error: ${res.status}`)
-  }
-
-  const data: TcgSearchResponse = await res.json()
-  return data.data
+  // Merge, putting specific results first, deduplicating by card id
+  const seen = new Set<string>()
+  return [...specificResults, ...broadResults].filter(card => {
+    if (seen.has(card.id)) return false
+    seen.add(card.id)
+    return true
+  })
 }
 
 export async function getCardById(id: string): Promise<TcgCard> {
