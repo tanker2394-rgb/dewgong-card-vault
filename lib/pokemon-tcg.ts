@@ -72,8 +72,8 @@ export async function searchCards(query: string, set?: string): Promise<TcgCard[
   if (set) q += ` set.name:"${set}*"`
 
   const res = await fetch(
-    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=250&orderBy=-set.releaseDate`,
-    { headers }
+    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=100&orderBy=-set.releaseDate`,
+    { headers, cache: 'no-store' }
   )
 
   if (!res.ok) {
