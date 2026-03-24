@@ -78,7 +78,7 @@ export async function searchCards(query: string, set?: string): Promise<TcgCard[
 
   const encodedQuery = encodeURIComponent(q)
   const res = await fetch(
-    `${BASE_URL}/cards?q=${encodedQuery}&pageSize=36&orderBy=-set.releaseDate`,
+    `${BASE_URL}/cards?q=${encodedQuery}&pageSize=100&orderBy=-set.releaseDate`,
     { headers }
   )
 

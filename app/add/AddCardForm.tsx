@@ -40,7 +40,7 @@ export function AddCardForm() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchSet, setSearchSet] = useState('')
   const [searchResults, setSearchResults] = useState<TcgCard[]>([])
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'price_high' | 'price_low'>('date')
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'price_high' | 'price_low'>('price_high')
   const [searching, setSearching] = useState(false)
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -81,13 +81,21 @@ export function AddCardForm() {
     triggerSearch(searchQuery, s)
   }, [searchQuery, triggerSearch])
 
+  const getPrice = (card: TcgCard) =>
+    card.tcgplayer?.prices?.holofoil?.market ??
+    card.tcgplayer?.prices?.normal?.market ??
+    card.tcgplayer?.prices?.reverseHolofoil?.market ??
+    null
+
   const sortedResults = [...searchResults].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
-    if (sortBy === 'date') {
-      return (b.set.releaseDate ?? '').localeCompare(a.set.releaseDate ?? '')
-    }
-    const priceA = a.tcgplayer?.prices?.holofoil?.market ?? a.tcgplayer?.prices?.normal?.market ?? 0
-    const priceB = b.tcgplayer?.prices?.holofoil?.market ?? b.tcgplayer?.prices?.normal?.market ?? 0
+    if (sortBy === 'date') return (b.set.releaseDate ?? '').localeCompare(a.set.releaseDate ?? '')
+    const priceA = getPrice(a)
+    const priceB = getPrice(b)
+    // Cards with no price sink to bottom
+    if (priceA === null && priceB === null) return 0
+    if (priceA === null) return 1
+    if (priceB === null) return -1
     return sortBy === 'price_high' ? priceB - priceA : priceA - priceB
   })
 
