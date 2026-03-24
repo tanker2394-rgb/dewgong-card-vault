@@ -46,22 +46,39 @@ export interface TcgSearchResponse {
   totalCount: number
 }
 
+// Special card subtypes that users often type before the Pokémon name
+const SUBTYPES = ['VMAX', 'VSTAR', 'GX', 'EX', 'MEGA', 'BREAK', 'PRIME', 'LEGEND']
+
 export async function searchCards(query: string, set?: string): Promise<TcgCard[]> {
   const apiKey = process.env.POKEMON_TCG_API_KEY
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+  const headers: HeadersInit = { 'Content-Type': 'application/json' }
+  if (apiKey) headers['X-Api-Key'] = apiKey
+
+  // Detect if user typed a subtype first e.g. "vmax charizard" → name:charizard* subtypes:VMAX
+  let nameQuery = query.trim()
+  let subtypeFilter = ''
+  for (const sub of SUBTYPES) {
+    const regex = new RegExp(`\\b${sub}\\b`, 'i')
+    if (regex.test(nameQuery)) {
+      subtypeFilter = sub
+      nameQuery = nameQuery.replace(regex, '').trim()
+      break
+    }
   }
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey
+  // Handle standalone "V" as a subtype only if it's the whole word and something else is present
+  if (!subtypeFilter && /\bV\b/.test(nameQuery) && nameQuery.replace(/\bV\b/, '').trim()) {
+    subtypeFilter = 'V'
+    nameQuery = nameQuery.replace(/\bV\b/, '').trim()
   }
 
-  let q = `name:${query}*`
+  let q = `name:${nameQuery}*`
+  if (subtypeFilter) q += ` subtypes:${subtypeFilter}`
   if (set) q += ` set.name:"${set}*"`
 
   const encodedQuery = encodeURIComponent(q)
   const res = await fetch(
-    `${BASE_URL}/cards?q=${encodedQuery}&pageSize=20&orderBy=name`,
+    `${BASE_URL}/cards?q=${encodedQuery}&pageSize=36&orderBy=-set.releaseDate`,
     { headers }
   )
 
