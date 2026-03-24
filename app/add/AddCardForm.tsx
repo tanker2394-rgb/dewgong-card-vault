@@ -40,7 +40,7 @@ export function AddCardForm() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchSet, setSearchSet] = useState('')
   const [searchResults, setSearchResults] = useState<TcgCard[]>([])
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'price_high' | 'price_low'>('price_high')
+  const [sortBy, setSortBy] = useState<'relevance' | 'name' | 'date' | 'price_high' | 'price_low'>('relevance')
   const [searching, setSearching] = useState(false)
   const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -85,14 +85,41 @@ export function AddCardForm() {
     card.tcgplayer?.prices?.holofoil?.market ??
     card.tcgplayer?.prices?.normal?.market ??
     card.tcgplayer?.prices?.reverseHolofoil?.market ??
+    card.cardmarket?.prices?.trendPrice ??
     null
 
+  const scoreCard = (card: TcgCard, query: string) => {
+    const q = query.toLowerCase()
+    const name = card.name.toLowerCase()
+    let score = 0
+
+    // Price is the main popularity signal
+    const price = getPrice(card) ?? 0
+    score += Math.min(price * 3, 150)
+
+    // Exact/close name match bonus
+    if (name === q) score += 200
+    else if (name.startsWith(q)) score += 80
+
+    // Subtype match bonus — if user typed "vmax", boost cards with VMAX in name
+    const subtypes = ['vmax', 'vstar', 'gx', 'ex', 'mega', 'break', 'prime', 'legend']
+    for (const sub of subtypes) {
+      if (q.includes(sub) && name.includes(sub)) score += 100
+    }
+
+    // Holo/rare variants get a small boost (more collectible)
+    const rarity = (card.rarity ?? '').toLowerCase()
+    if (rarity.includes('rare') || rarity.includes('holo') || rarity.includes('ultra') || rarity.includes('secret')) score += 20
+
+    return score
+  }
+
   const sortedResults = [...searchResults].sort((a, b) => {
+    if (sortBy === 'relevance') return scoreCard(b, searchQuery) - scoreCard(a, searchQuery)
     if (sortBy === 'name') return a.name.localeCompare(b.name)
     if (sortBy === 'date') return (b.set.releaseDate ?? '').localeCompare(a.set.releaseDate ?? '')
     const priceA = getPrice(a)
     const priceB = getPrice(b)
-    // Cards with no price sink to bottom
     if (priceA === null && priceB === null) return 0
     if (priceA === null) return 1
     if (priceB === null) return -1
@@ -216,6 +243,7 @@ export function AddCardForm() {
                   onChange={e => setSortBy(e.target.value as typeof sortBy)}
                   className="text-xs border border-ice-200 rounded-lg px-2 py-1 text-frost-600 bg-white focus:outline-none focus:ring-1 focus:ring-ice-300"
                 >
+                  <option value="relevance">Best Match</option>
                   <option value="date">Newest Set</option>
                   <option value="price_high">Price: High → Low</option>
                   <option value="price_low">Price: Low → High</option>

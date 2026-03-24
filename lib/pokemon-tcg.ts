@@ -46,8 +46,8 @@ export interface TcgSearchResponse {
   totalCount: number
 }
 
-// Special card subtypes that users often type before the Pokémon name
-const SUBTYPES = ['VMAX', 'VSTAR', 'GX', 'EX', 'MEGA', 'BREAK', 'PRIME', 'LEGEND']
+// Subtype words to strip from the query so we search by Pokémon name only
+const SUBTYPE_WORDS = ['VMAX', 'VSTAR', 'VUNION', 'GX', 'EX', 'MEGA', 'BREAK', 'PRIME', 'LEGEND', 'TAG TEAM']
 
 export async function searchCards(query: string, set?: string): Promise<TcgCard[]> {
   const apiKey = process.env.POKEMON_TCG_API_KEY
@@ -55,30 +55,24 @@ export async function searchCards(query: string, set?: string): Promise<TcgCard[
   const headers: HeadersInit = { 'Content-Type': 'application/json' }
   if (apiKey) headers['X-Api-Key'] = apiKey
 
-  // Detect if user typed a subtype first e.g. "vmax charizard" → name:charizard* subtypes:VMAX
+  // Strip subtype words to get a clean Pokémon name for the API search
+  // e.g. "vmax charizard" → "charizard", "deoxys vmax" → "deoxys"
+  // Then rely on client-side sort (by price) to surface the right variant
   let nameQuery = query.trim()
-  let subtypeFilter = ''
-  for (const sub of SUBTYPES) {
-    const regex = new RegExp(`\\b${sub}\\b`, 'i')
-    if (regex.test(nameQuery)) {
-      subtypeFilter = sub
-      nameQuery = nameQuery.replace(regex, '').trim()
-      break
-    }
+  for (const sub of SUBTYPE_WORDS) {
+    nameQuery = nameQuery.replace(new RegExp(`\\b${sub}\\b`, 'gi'), '').trim()
   }
-  // Handle standalone "V" as a subtype only if it's the whole word and something else is present
-  if (!subtypeFilter && /\bV\b/.test(nameQuery) && nameQuery.replace(/\bV\b/, '').trim()) {
-    subtypeFilter = 'V'
-    nameQuery = nameQuery.replace(/\bV\b/, '').trim()
-  }
+  // Also strip standalone "V" only when other words remain
+  const withoutV = nameQuery.replace(/\bV\b/g, '').trim()
+  if (withoutV) nameQuery = withoutV
+
+  if (!nameQuery) nameQuery = query.trim() // fallback: nothing was strippable
 
   let q = `name:${nameQuery}*`
-  if (subtypeFilter) q += ` subtypes:${subtypeFilter}`
   if (set) q += ` set.name:"${set}*"`
 
-  const encodedQuery = encodeURIComponent(q)
   const res = await fetch(
-    `${BASE_URL}/cards?q=${encodedQuery}&pageSize=100&orderBy=-set.releaseDate`,
+    `${BASE_URL}/cards?q=${encodeURIComponent(q)}&pageSize=250&orderBy=-set.releaseDate`,
     { headers }
   )
 
