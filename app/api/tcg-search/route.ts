@@ -14,7 +14,12 @@ export async function GET(request: Request) {
 
   try {
     const cards = await searchCards(query.trim(), set?.trim() || undefined)
-    return NextResponse.json(cards)
+    return NextResponse.json(cards, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 502 })

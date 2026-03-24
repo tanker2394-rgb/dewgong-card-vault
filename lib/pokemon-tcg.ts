@@ -79,21 +79,26 @@ export async function searchCards(query: string, set?: string): Promise<TcgCard[
   if (withoutV) nameQuery = withoutV
   if (!nameQuery) nameQuery = query.trim()
 
-  // Run two searches in parallel: one broad, one with subtype filter (if detected)
-  // This ensures we never miss a card due to API quirks
+  // Three parallel searches for maximum coverage:
+  // 1. Exact phrase match — catches e.g. "Deoxys VMAX" literally
+  // 2. Subtype-filtered — catches e.g. name:deoxys* subtypes:VMAX (if subtype detected)
+  // 3. Broad wildcard — catches partial name entry
+  const rawQuery = query.trim()
+  const phraseQuery = `name:"${rawQuery}"${setFilter}`
   const broadQuery = `name:${nameQuery}*${setFilter}`
   const specificQuery = detectedSubtype
     ? `name:${nameQuery}* subtypes:${detectedSubtype}${setFilter}`
     : null
 
-  const [broadResults, specificResults] = await Promise.all([
-    fetchCards(broadQuery, headers),
+  const [phraseResults, specificResults, broadResults] = await Promise.all([
+    fetchCards(phraseQuery, headers),
     specificQuery ? fetchCards(specificQuery, headers) : Promise.resolve([] as TcgCard[]),
+    fetchCards(broadQuery, headers),
   ])
 
-  // Merge, putting specific results first, deduplicating by card id
+  // Merge: phrase first (exact hits), then specific, then broad — dedup by card id
   const seen = new Set<string>()
-  return [...specificResults, ...broadResults].filter(card => {
+  return [...phraseResults, ...specificResults, ...broadResults].filter(card => {
     if (seen.has(card.id)) return false
     seen.add(card.id)
     return true
