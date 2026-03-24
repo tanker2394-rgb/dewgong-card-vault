@@ -35,7 +35,8 @@ export function AuthForm() {
       } else if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
-        setMessage('Check your email for a confirmation link!')
+        router.push('/')
+        router.refresh()
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
